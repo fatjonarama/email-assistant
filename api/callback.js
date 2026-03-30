@@ -38,16 +38,6 @@ export default async function handler(req, res) {
     const userEmail = userData.email || 'Unknown';
     const userName = userData.name || userEmail;
 
-    // DEBUG: shiko kolonat ekzakte të Notion DB
-    const dbResponse = await fetch(`https://api.notion.com/v1/databases/${process.env.NOTION_DATABASE_ID}`, {
-      headers: {
-        'Authorization': `Bearer ${process.env.NOTION_TOKEN}`,
-        'Notion-Version': '2022-06-28'
-      }
-    });
-    const dbData = await dbResponse.json();
-    console.log('Notion DB properties:', JSON.stringify(Object.keys(dbData.properties)));
-
     const notionBody = {
       parent: { database_id: process.env.NOTION_DATABASE_ID },
       properties: {
@@ -86,6 +76,18 @@ export default async function handler(req, res) {
       console.error('Notion error:', notionData);
       return res.redirect('/?error=notion_failed');
     }
+
+    // Trigger n8n workflow për këtë user
+    await fetch('https://n8n.srv1038689.hstgr.cloud/webhook/mailvind-process', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: userEmail,
+        name: userName,
+        refresh_token: refresh_token,
+        notion_page_id: notionData.id
+      })
+    });
 
     return res.redirect('/?success=true');
 
