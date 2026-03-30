@@ -38,13 +38,16 @@ export default async function handler(req, res) {
     const userEmail = userData.email || 'Unknown';
     const userName = userData.name || userEmail;
 
-    // Debug - shiko çfarë po dërgojmë
-    console.log('NOTION_TOKEN exists:', !!process.env.NOTION_TOKEN);
-    console.log('NOTION_DATABASE_ID:', process.env.NOTION_DATABASE_ID);
-    console.log('userName:', userName);
-    console.log('userEmail:', userEmail);
+    // DEBUG: shiko kolonat ekzakte të Notion DB
+    const dbResponse = await fetch(`https://api.notion.com/v1/databases/${process.env.NOTION_DATABASE_ID}`, {
+      headers: {
+        'Authorization': `Bearer ${process.env.NOTION_TOKEN}`,
+        'Notion-Version': '2022-06-28'
+      }
+    });
+    const dbData = await dbResponse.json();
+    console.log('Notion DB properties:', JSON.stringify(Object.keys(dbData.properties)));
 
-    // Notion - vetëm fushat bazë fillimisht
     const notionBody = {
       parent: { database_id: process.env.NOTION_DATABASE_ID },
       properties: {
@@ -65,8 +68,6 @@ export default async function handler(req, res) {
         }
       }
     };
-
-    console.log('Sending to Notion:', JSON.stringify(notionBody));
 
     const notionResponse = await fetch('https://api.notion.com/v1/pages', {
       method: 'POST',
@@ -93,3 +94,8 @@ export default async function handler(req, res) {
     return res.redirect('/?error=server_error');
   }
 }
+```
+
+Deploy këtë, provo përsëri me Gmail button, pastaj shko te Vercel Logs dhe dërgo çfarë shkruan tek:
+```
+Notion DB properties: [...]
