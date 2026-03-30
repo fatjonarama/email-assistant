@@ -32,87 +32,52 @@ export default async function handler(req, res) {
 
     const { access_token, refresh_token } = tokenData;
 
-    // Hapi 2: Krijo Gmail credential në n8n
-    const credentialResponse = await fetch(`${process.env.N8N_URL}/api/v1/credentials`, {
+    // Merr email-in e punonjësit
+    const userResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: { Authorization: `Bearer ${access_token}` }
+    });
+    const userData = await userResponse.json();
+    const userEmail = userData.email || 'Unknown';
+    const userName = userData.name || userEmail;
+
+    // Hapi 2: Ruaj te Notion
+    const notionResponse = await fetch('https://api.notion.com/v1/pages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-N8N-API-KEY': process.env.N8N_API_KEY
+        'Authorization': `Bearer ${process.env.NOTION_TOKEN}`,
+        'Notion-Version': '2022-06-28'
       },
-     body: JSON.stringify({
-  name: `Gmail - ${Date.now()}`,
-  type: 'gmailOAuth2',
-  data: {
-    useDynamicClientRegistration: false,
-    clientId: process.env.GOOGLE_CLIENT_ID,
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    oauthTokenData: JSON.stringify({
-      access_token: access_token,
-      refresh_token: refresh_token,
-      scope: 'https://www.googleapis.com/auth/gmail.modify',
-      token_type: 'Bearer',
-      expiry_date: Date.now() + 3600000
-    })
-  }
-})
+      body: JSON.stringify({
+        parent: { database_id: process.env.NOTION_DATABASE_ID },
+        properties: {
+          Name: {
+            title: [{ text: { content: userName } }]
+          },
+          Email: {
+            email: userEmail
+          },
+          'Refresh Token': {
+            rich_text: [{ text: { content: refresh_token || '' } }]
+          },
+          'Connected At': {
+            date: { start: new Date().toISOString() }
+          },
+          Status: {
+            select: { name: 'Pending' }
+          }
+        }
+      })
     });
 
-    const credentialData = await credentialResponse.json();
-    console.log('Credential created:', credentialData);
+    const notionData = await notionResponse.json();
+    console.log('Notion saved:', notionData.id);
 
-    if (!credentialData.id) {
-      console.error('Credential error:', credentialData);
-      return res.redirect('/?error=credential_failed');
+    if (!notionData.id) {
+      console.error('Notion error:', notionData);
+      return res.redirect('/?error=notion_failed');
     }
 
-    const credentialId = credentialData.id;
-
-    // Hapi 3: Merr workflow-in Fixer
-    const workflowResponse = await fetch(`${process.env.N8N_URL}/api/v1/workflows/${process.env.N8N_WORKFLOW_ID}`, {
-      headers: {
-        'X-N8N-API-KEY': process.env.N8N_API_KEY
-      }
-    });
-
-    const workflowData = await workflowResponse.json();
-
-    // Hapi 4: Dupliko workflow-in
-    const newWorkflow = {
-      ...workflowData,
-      name: `Fixer - ${Date.now()}`,
-      active: false
-    };
-
-    delete newWorkflow.id;
-    delete newWorkflow.createdAt;
-    delete newWorkflow.updatedAt;
-
-    const createResponse = await fetch(`${process.env.N8N_URL}/api/v1/workflows`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-N8N-API-KEY': process.env.N8N_API_KEY
-      },
-      body: JSON.stringify(newWorkflow)
-    });
-
-    const newWorkflowData = await createResponse.json();
-    console.log('Workflow created:', newWorkflowData.id);
-
-    if (!newWorkflowData.id) {
-      console.error('Workflow error:', newWorkflowData);
-      return res.redirect('/?error=workflow_failed');
-    }
-
-    // Hapi 5: Aktivizo workflow-in e ri
-    await fetch(`${process.env.N8N_URL}/api/v1/workflows/${newWorkflowData.id}/activate`, {
-      method: 'POST',
-      headers: {
-        'X-N8N-API-KEY': process.env.N8N_API_KEY
-      }
-    });
-
-    // Hapi 6: Ridrejto te success page
     return res.redirect('/?success=true');
 
   } catch (err) {
