@@ -94,8 +94,3 @@ export default async function handler(req, res) {
     return res.redirect('/?error=server_error');
   }
 }
-```
-
-Deploy këtë, provo përsëri me Gmail button, pastaj shko te Vercel Logs dhe dërgo çfarë shkruan tek:
-```
-Notion DB properties: [...]
