@@ -10,7 +10,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Hapi 1: Shkëmbe code me token
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -32,7 +31,6 @@ export default async function handler(req, res) {
 
     const { access_token, refresh_token } = tokenData;
 
-    // Merr email-in e punonjësit
     const userResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
       headers: { Authorization: `Bearer ${access_token}` }
     });
@@ -40,7 +38,36 @@ export default async function handler(req, res) {
     const userEmail = userData.email || 'Unknown';
     const userName = userData.name || userEmail;
 
-    // Hapi 2: Ruaj te Notion
+    // Debug - shiko çfarë po dërgojmë
+    console.log('NOTION_TOKEN exists:', !!process.env.NOTION_TOKEN);
+    console.log('NOTION_DATABASE_ID:', process.env.NOTION_DATABASE_ID);
+    console.log('userName:', userName);
+    console.log('userEmail:', userEmail);
+
+    // Notion - vetëm fushat bazë fillimisht
+    const notionBody = {
+      parent: { database_id: process.env.NOTION_DATABASE_ID },
+      properties: {
+        Name: {
+          title: [{ text: { content: userName } }]
+        },
+        Email: {
+          email: userEmail
+        },
+        'Refresh Token': {
+          rich_text: [{ text: { content: refresh_token || 'no_refresh_token' } }]
+        },
+        'Connected At': {
+          date: { start: new Date().toISOString() }
+        },
+        Status: {
+          select: { name: 'Pending' }
+        }
+      }
+    };
+
+    console.log('Sending to Notion:', JSON.stringify(notionBody));
+
     const notionResponse = await fetch('https://api.notion.com/v1/pages', {
       method: 'POST',
       headers: {
@@ -48,30 +75,11 @@ export default async function handler(req, res) {
         'Authorization': `Bearer ${process.env.NOTION_TOKEN}`,
         'Notion-Version': '2022-06-28'
       },
-      body: JSON.stringify({
-        parent: { database_id: process.env.NOTION_DATABASE_ID },
-        properties: {
-          Name: {
-            title: [{ text: { content: userName } }]
-          },
-          Email: {
-            email: userEmail
-          },
-          'Refresh Token': {
-            rich_text: [{ text: { content: refresh_token || '' } }]
-          },
-          'Connected At': {
-            date: { start: new Date().toISOString() }
-          },
-          Status: {
-            select: { name: 'Pending' }
-          }
-        }
-      })
+      body: JSON.stringify(notionBody)
     });
 
     const notionData = await notionResponse.json();
-    console.log('Notion saved:', notionData.id);
+    console.log('Notion response:', JSON.stringify(notionData));
 
     if (!notionData.id) {
       console.error('Notion error:', notionData);
