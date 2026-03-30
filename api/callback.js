@@ -43,11 +43,13 @@ export default async function handler(req, res) {
         name: `Gmail - ${Date.now()}`,
         type: 'gmailOAuth2',
         data: {
-          access_token: access_token,
-          refresh_token: refresh_token,
-          scope: 'https://www.googleapis.com/auth/gmail.modify',
-          token_type: 'Bearer',
-          expiry_date: Date.now() + 3600000
+          oauthTokenData: {
+            access_token: access_token,
+            refresh_token: refresh_token,
+            scope: 'https://www.googleapis.com/auth/gmail.modify',
+            token_type: 'Bearer',
+            expiry_date: Date.now() + 3600000
+          }
         }
       })
     });
@@ -95,6 +97,7 @@ export default async function handler(req, res) {
     console.log('Workflow created:', newWorkflowData.id);
 
     if (!newWorkflowData.id) {
+      console.error('Workflow error:', newWorkflowData);
       return res.redirect('/?error=workflow_failed');
     }
 
