@@ -39,19 +39,21 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
         'X-N8N-API-KEY': process.env.N8N_API_KEY
       },
-      body: JSON.stringify({
-        name: `Gmail - ${Date.now()}`,
-        type: 'gmailOAuth2',
-        data: {
-          oauthTokenData: {
-            access_token: access_token,
-            refresh_token: refresh_token,
-            scope: 'https://www.googleapis.com/auth/gmail.modify',
-            token_type: 'Bearer',
-            expiry_date: Date.now() + 3600000
-          }
-        }
-      })
+   body: JSON.stringify({
+  name: `Gmail - ${Date.now()}`,
+  type: 'gmailOAuth2',
+  data: {
+    clientId: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    oauthTokenData: {
+      access_token: access_token,
+      refresh_token: refresh_token,
+      scope: 'https://www.googleapis.com/auth/gmail.modify',
+      token_type: 'Bearer',
+      expiry_date: Date.now() + 3600000
+    }
+  }
+})
     });
 
     const credentialData = await credentialResponse.json();
