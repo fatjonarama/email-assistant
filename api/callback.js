@@ -39,10 +39,11 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
         'X-N8N-API-KEY': process.env.N8N_API_KEY
       },
-      body: JSON.stringify({
+     body: JSON.stringify({
   name: `Gmail - ${Date.now()}`,
   type: 'gmailOAuth2',
   data: {
+    useDynamicClientRegistration: false,
     clientId: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     oauthTokenData: JSON.stringify({
