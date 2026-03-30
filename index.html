@@ -357,7 +357,7 @@
 </main>
 
 <footer>
-  <span>© 2026 Fixer · Internal use only</span>
+  <span>© 2026 MailMind · Internal use only</span>
   <span>Questions? Contact IT</span>
 </footer>
 
@@ -368,8 +368,14 @@
 </div>
 
 <script>
+  // Show success if redirected back with ?success=true
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('success') === 'true') {
+    document.getElementById('successOverlay').classList.add('show');
+  }
+
   function handleConnect() {
-    const OAUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth?client_id=751055676039-og91aatkiflr3va4n3iq36tgp295cm6e.apps.googleusercontent.com&redirect_uri=https://n8n.srv1038689.hstgr.cloud/webhook/gmail-connect&response_type=code&scope=https://www.googleapis.com/auth/gmail.modify&access_type=offline&prompt=consent";
+    const OAUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth?client_id=751055676039-og91aatkiflr3va4n3iq36tgp295cm6e.apps.googleusercontent.com&redirect_uri=https://email-assistant-red.vercel.app/api/callback&response_type=code&scope=https://www.googleapis.com/auth/gmail.modify&access_type=offline&prompt=consent";
     window.location.href = OAUTH_URL;
   }
 </script>
