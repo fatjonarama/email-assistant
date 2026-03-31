@@ -38,6 +38,19 @@ export default async function handler(req, res) {
     const userEmail = userData.email || 'Unknown';
     const userName = userData.name || userEmail;
 
+    // Krijo Gmail labels automatikisht
+    const gmailLabels = ['needs_reply', 'FYI', 'junk'];
+    for (const labelName of gmailLabels) {
+      await fetch('https://gmail.googleapis.com/gmail/v1/users/me/labels', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ name: labelName })
+      }).catch(() => {});
+    }
+
     const notionBody = {
       parent: { database_id: process.env.NOTION_DATABASE_ID },
       properties: {
