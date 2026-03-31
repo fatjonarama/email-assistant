@@ -67,7 +67,7 @@ export default async function handler(req, res) {
           date: { start: new Date().toISOString() }
         },
         Status: {
-          select: { name: 'Pending' }
+          select: { name: 'In progress' }  // ← NDRYSHUAR
         }
       }
     };
@@ -90,19 +90,7 @@ export default async function handler(req, res) {
       return res.redirect('/?error=notion_failed');
     }
 
-    // Trigger n8n workflow për këtë user
-    await fetch('https://n8n.srv1038689.hstgr.cloud/webhook/mailvind-process', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: userEmail,
-        name: userName,
-        refresh_token: refresh_token,
-        notion_page_id: notionData.id
-      })
-    });
-
-    return res.redirect('/?success=true');
+    return res.redirect('/?success=true');  // ← FSHIRË webhook trigger
 
   } catch (err) {
     console.error('Error:', err);
