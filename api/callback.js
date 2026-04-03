@@ -1,20 +1,16 @@
 export default async function handler(req, res) {
   const { code, error } = req.query;
 
-  if (error) {
-    return res.redirect('/?error=access_denied');
-  }
-
-  if (!code) {
-    return res.redirect('/?error=no_code');
-  }
+  if (error) return res.redirect('/?error=access_denied');
+  if (!code) return res.redirect('/?error=no_code');
 
   try {
+    // Step 1: Exchange code for tokens
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
-        code: code,
+        code,
         client_id: process.env.GOOGLE_CLIENT_ID,
         client_secret: process.env.GOOGLE_CLIENT_SECRET,
         redirect_uri: process.env.REDIRECT_URI,
@@ -31,6 +27,12 @@ export default async function handler(req, res) {
 
     const { access_token, refresh_token } = tokenData;
 
+    if (!refresh_token) {
+      console.error('No refresh_token received');
+      return res.redirect('/?error=no_refresh_token');
+    }
+
+    // Step 2: Get user info
     const userResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
       headers: { Authorization: `Bearer ${access_token}` }
     });
@@ -38,7 +40,7 @@ export default async function handler(req, res) {
     const userEmail = userData.email || 'Unknown';
     const userName = userData.name || userEmail;
 
-    // Krijo Gmail labels automatikisht
+    // Step 3: Create Gmail labels (needs_reply, FYI, junk)
     const gmailLabels = ['needs_reply', 'FYI', 'junk'];
     for (const labelName of gmailLabels) {
       await fetch('https://gmail.googleapis.com/gmail/v1/users/me/labels', {
@@ -51,46 +53,93 @@ export default async function handler(req, res) {
       }).catch(() => {});
     }
 
-    const notionBody = {
-      parent: { database_id: process.env.NOTION_DATABASE_ID },
-      properties: {
-        Name: {
-          title: [{ text: { content: userName } }]
+    // Step 4: Check if this email already exists in Notion
+    // If YES → UPDATE refresh token (user reconnected)
+    // If NO  → CREATE new record
+    const queryResponse = await fetch(
+      `https://api.notion.com/v1/databases/${process.env.NOTION_DATABASE_ID}/query`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NOTION_TOKEN}`,
+          'Notion-Version': '2022-06-28'
         },
-        Email: {
-          email: userEmail
-        },
-        'Refresh Token': {
-          rich_text: [{ text: { content: refresh_token || 'no_refresh_token' } }]
-        },
-        'Connected At': {
-          date: { start: new Date().toISOString() }
-        },
-        Status: {
-          select: { name: 'In progress' }  // ← NDRYSHUAR
-        }
+        body: JSON.stringify({
+          filter: {
+            property: 'Email',
+            email: { equals: userEmail }
+          },
+          page_size: 1
+        })
       }
-    };
+    );
 
-    const notionResponse = await fetch('https://api.notion.com/v1/pages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.NOTION_TOKEN}`,
-        'Notion-Version': '2022-06-28'
-      },
-      body: JSON.stringify(notionBody)
-    });
+    const queryData = await queryResponse.json();
+    const existingPage = queryData.results?.[0];
 
-    const notionData = await notionResponse.json();
-    console.log('Notion response:', JSON.stringify(notionData));
+    if (existingPage) {
+      // UPDATE — user reconnected, refresh the token
+      await fetch(`https://api.notion.com/v1/pages/${existingPage.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NOTION_TOKEN}`,
+          'Notion-Version': '2022-06-28'
+        },
+        body: JSON.stringify({
+          properties: {
+            'Refresh Token': {
+              rich_text: [{ text: { content: refresh_token } }]
+            },
+            'Connected At': {
+              date: { start: new Date().toISOString() }
+            },
+            Status: {
+              select: { name: 'In progress' }
+            }
+          }
+        })
+      });
+    } else {
+      // CREATE — new user
+      const notionResponse = await fetch('https://api.notion.com/v1/pages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NOTION_TOKEN}`,
+          'Notion-Version': '2022-06-28'
+        },
+        body: JSON.stringify({
+          parent: { database_id: process.env.NOTION_DATABASE_ID },
+          properties: {
+            Name: {
+              title: [{ text: { content: userName } }]
+            },
+            Email: {
+              email: userEmail
+            },
+            'Refresh Token': {
+              rich_text: [{ text: { content: refresh_token } }]
+            },
+            'Connected At': {
+              date: { start: new Date().toISOString() }
+            },
+            Status: {
+              select: { name: 'In progress' }
+            }
+          }
+        })
+      });
 
-    if (!notionData.id) {
-      console.error('Notion error:', notionData);
-      return res.redirect('/?error=notion_failed');
+      const notionData = await notionResponse.json();
+      if (!notionData.id) {
+        console.error('Notion error:', notionData);
+        return res.redirect('/?error=notion_failed');
+      }
     }
 
-    return res.redirect('/?success=true');  // ← FSHIRË webhook trigger
+    return res.redirect('/?success=true');
 
   } catch (err) {
     console.error('Error:', err);
