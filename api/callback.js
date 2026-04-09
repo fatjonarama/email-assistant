@@ -128,7 +128,7 @@ export default async function handler(req, res) {
 
     // Step 5: Set cookie with user email (30 days)
     const cookieValue = Buffer.from(userEmail).toString('base64');
-    res.setHeader('Set-Cookie', `mailmind_user=${cookieValue}; Path=/; Max-Age=${30 * 24 * 60 * 60}; HttpOnly; Secure; SameSite=Strict`);
+ res.setHeader('Set-Cookie', `mailmind_user=${cookieValue}; Path=/; Max-Age=${30 * 24 * 60 * 60}; Secure; SameSite=Strict`);   res.setHeader('Set-Cookie', `mailmind_user=${cookieValue}; Path=/; Max-Age=${30 * 24 * 60 * 60}; HttpOnly; Secure; SameSite=Strict`);
 
     return res.redirect('/?success=true');
 
