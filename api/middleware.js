@@ -2,7 +2,7 @@ const rateLimit = new Map();
 
 export function checkRateLimit(ip) {
   const now = Date.now();
-  const windowMs = 15 * 60 * 1000; // 15 minutes
+  const windowMs = 15 * 60 * 1000;
   const maxRequests = 10;
 
   if (!rateLimit.has(ip)) {

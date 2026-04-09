@@ -1,7 +1,6 @@
 import { checkRateLimit } from './middleware.js';
 
 export default async function handler(req, res) {
-  // Rate limit — max 10 requests per 15 min per IP
   const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
   if (!checkRateLimit(ip)) {
     return res.status(429).send('Too many requests. Please try again later.');
@@ -85,7 +84,6 @@ export default async function handler(req, res) {
     const existingPage = queryData.results?.[0];
 
     if (existingPage) {
-      // UPDATE — user reconnected
       await fetch(`https://api.notion.com/v1/pages/${existingPage.id}`, {
         method: 'PATCH',
         headers: {
@@ -95,20 +93,13 @@ export default async function handler(req, res) {
         },
         body: JSON.stringify({
           properties: {
-            'Refresh Token': {
-              rich_text: [{ text: { content: refresh_token } }]
-            },
-            'Connected At': {
-              date: { start: new Date().toISOString() }
-            },
-            Status: {
-              select: { name: 'In progress' }
-            }
+            'Refresh Token': { rich_text: [{ text: { content: refresh_token } }] },
+            'Connected At': { date: { start: new Date().toISOString() } },
+            Status: { select: { name: 'In progress' } }
           }
         })
       });
     } else {
-      // CREATE — new user
       const notionResponse = await fetch('https://api.notion.com/v1/pages', {
         method: 'POST',
         headers: {
@@ -119,21 +110,11 @@ export default async function handler(req, res) {
         body: JSON.stringify({
           parent: { database_id: process.env.NOTION_DATABASE_ID },
           properties: {
-            Name: {
-              title: [{ text: { content: userName } }]
-            },
-            Email: {
-              email: userEmail
-            },
-            'Refresh Token': {
-              rich_text: [{ text: { content: refresh_token } }]
-            },
-            'Connected At': {
-              date: { start: new Date().toISOString() }
-            },
-            Status: {
-              select: { name: 'In progress' }
-            }
+            Name: { title: [{ text: { content: userName } }] },
+            Email: { email: userEmail },
+            'Refresh Token': { rich_text: [{ text: { content: refresh_token } }] },
+            'Connected At': { date: { start: new Date().toISOString() } },
+            Status: { select: { name: 'In progress' } }
           }
         })
       });
@@ -144,6 +125,10 @@ export default async function handler(req, res) {
         return res.redirect('/?error=notion_failed');
       }
     }
+
+    // Step 5: Set cookie with user email (30 days)
+    const cookieValue = Buffer.from(userEmail).toString('base64');
+    res.setHeader('Set-Cookie', `mailmind_user=${cookieValue}; Path=/; Max-Age=${30 * 24 * 60 * 60}; HttpOnly; Secure; SameSite=Strict`);
 
     return res.redirect('/?success=true');
 
