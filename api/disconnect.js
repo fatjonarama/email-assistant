@@ -58,7 +58,7 @@ export default async function handler(req, res) {
     });
 
     // Step 4: Clear cookie
-    res.setHeader('Set-Cookie', 'mailmind_user=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict');
+    res.setHeader('Set-Cookie', 'mailmind_user=; Path=/; Max-Age=0; Secure; SameSite=Strict');
     return res.status(200).json({ success: true });
 
   } catch (err) {
