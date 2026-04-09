@@ -1,4 +1,12 @@
+import { checkRateLimit } from './middleware.js';
+
 export default async function handler(req, res) {
+  // Rate limit — max 10 requests per 15 min per IP
+  const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
+  if (!checkRateLimit(ip)) {
+    return res.status(429).send('Too many requests. Please try again later.');
+  }
+
   const { code, error } = req.query;
 
   if (error) return res.redirect('/?error=access_denied');
@@ -40,7 +48,7 @@ export default async function handler(req, res) {
     const userEmail = userData.email || 'Unknown';
     const userName = userData.name || userEmail;
 
-    // Step 3: Create Gmail labels (needs_reply, FYI, junk)
+    // Step 3: Create Gmail labels
     const gmailLabels = ['needs_reply', 'FYI', 'junk'];
     for (const labelName of gmailLabels) {
       await fetch('https://gmail.googleapis.com/gmail/v1/users/me/labels', {
@@ -53,9 +61,7 @@ export default async function handler(req, res) {
       }).catch(() => {});
     }
 
-    // Step 4: Check if this email already exists in Notion
-    // If YES → UPDATE refresh token (user reconnected)
-    // If NO  → CREATE new record
+    // Step 4: Check if employee already exists in Notion
     const queryResponse = await fetch(
       `https://api.notion.com/v1/databases/${process.env.NOTION_DATABASE_ID}/query`,
       {
@@ -79,7 +85,7 @@ export default async function handler(req, res) {
     const existingPage = queryData.results?.[0];
 
     if (existingPage) {
-      // UPDATE — user reconnected, refresh the token
+      // UPDATE — user reconnected
       await fetch(`https://api.notion.com/v1/pages/${existingPage.id}`, {
         method: 'PATCH',
         headers: {
