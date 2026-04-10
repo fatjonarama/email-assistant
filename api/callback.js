@@ -39,7 +39,30 @@ export default async function handler(req, res) {
       return res.redirect('/?error=no_refresh_token');
     }
 
-    // Step 2: Get user info
+    // ✅ NEW: Step 2 — Check if Gmail scope was granted
+    const tokenInfoResponse = await fetch(
+      `https://oauth2.googleapis.com/tokeninfo?access_token=${access_token}`
+    );
+    const tokenInfo = await tokenInfoResponse.json();
+
+    if (!tokenInfo.scope || !tokenInfo.scope.includes('gmail.modify')) {
+      console.error('Missing gmail.modify scope:', tokenInfo.scope);
+      return res.redirect('/?error=missing_gmail_scope');
+    }
+
+    // ✅ NEW: Check if Gmail service is enabled for this account
+    const gmailCheck = await fetch(
+      'https://gmail.googleapis.com/gmail/v1/users/me/profile',
+      { headers: { Authorization: `Bearer ${access_token}` } }
+    );
+
+    if (!gmailCheck.ok) {
+      const gmailError = await gmailCheck.json();
+      console.error('Gmail not enabled:', gmailError);
+      return res.redirect('/?error=gmail_not_enabled');
+    }
+
+    // Step 3: Get user info
     const userResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
       headers: { Authorization: `Bearer ${access_token}` }
     });
@@ -47,7 +70,7 @@ export default async function handler(req, res) {
     const userEmail = userData.email || 'Unknown';
     const userName = userData.name || userEmail;
 
-    // Step 3: Create Gmail labels
+    // Step 4: Create Gmail labels
     const gmailLabels = ['needs_reply', 'FYI', 'junk'];
     for (const labelName of gmailLabels) {
       await fetch('https://gmail.googleapis.com/gmail/v1/users/me/labels', {
@@ -60,7 +83,7 @@ export default async function handler(req, res) {
       }).catch(() => {});
     }
 
-    // Step 4: Check if employee already exists in Notion
+    // Step 5: Check if employee already exists in Notion
     const queryResponse = await fetch(
       `https://api.notion.com/v1/databases/${process.env.NOTION_DATABASE_ID}/query`,
       {
@@ -71,10 +94,7 @@ export default async function handler(req, res) {
           'Notion-Version': '2022-06-28'
         },
         body: JSON.stringify({
-          filter: {
-            property: 'Email',
-            email: { equals: userEmail }
-          },
+          filter: { property: 'Email', email: { equals: userEmail } },
           page_size: 1
         })
       }
@@ -126,10 +146,9 @@ export default async function handler(req, res) {
       }
     }
 
-    // Step 5: Set cookie with user email (30 days)
+    // Step 6: Set cookie (without HttpOnly so JS can read it)
     const cookieValue = Buffer.from(userEmail).toString('base64');
- // Duhet të jetë PA HttpOnly
-res.setHeader('Set-Cookie', `mailmind_user=${cookieValue}; Path=/; Max-Age=${30 * 24 * 60 * 60}; Secure; SameSite=Strict`);
+    res.setHeader('Set-Cookie', `mailmind_user=${cookieValue}; Path=/; Max-Age=${30 * 24 * 60 * 60}; Secure; SameSite=Strict`);
 
     return res.redirect('/?success=true');
 

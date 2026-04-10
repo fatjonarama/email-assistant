@@ -339,9 +339,21 @@
   }
 
   if (params.get('disconnected') === 'true') {
-    alert('Your account has been disconnected successfully.');
-  }
+  alert('Your account has been disconnected successfully.');
+}
 
+const errorMessages = {
+  'missing_gmail_scope': '⚠️ You must check the Gmail checkbox to continue.\n\nPlease click "Connect with Gmail" again and make sure to CHECK the Gmail permission box before clicking Continue.',
+  'gmail_not_enabled': '⚠️ Gmail is not enabled for your account.\n\nMailMind only works with Gmail accounts. Please use a @gmail.com address or contact your IT admin.',
+  'access_denied': '⚠️ Access was denied. Please try again.',
+  'token_failed': '⚠️ Something went wrong. Please try again.',
+  'server_error': '⚠️ Server error. Please try again.'
+};
+
+const errorParam = params.get('error');
+if (errorParam && errorMessages[errorParam]) {
+  alert(errorMessages[errorParam]);
+}
   function renderCTA(container) {
     if (!container) return;
     if (userEmail) {
